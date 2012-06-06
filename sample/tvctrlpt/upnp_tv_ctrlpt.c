@@ -42,11 +42,6 @@ ithread_mutex_t DeviceListMutex;
 UpnpClient_Handle ctrlpt_handle = -1;
 
 char TvDeviceType[] = "urn:schemas-upnp-org:device:MediaServer:1";
-char *TvServiceType[] = {
-    "urn:schemas-upnp-org:service:tvcontrol:1",
-    "urn:schemas-upnp-org:service:tvpicture:1",
-    "urn:schemas-upnp-org:service:ContentDirectory:1"
-};
 char *TvServiceName[] = { "Control", "Picture" };
 
 /*
@@ -345,6 +340,7 @@ int CtrlPointSendAction(char *UDN, int service, char *actionname,
                         char **param_name, char **param_val, int param_count)
 {
     struct TvDevice *dev;
+	struct tv_service *tvservice;
     IXML_Document *ActionXML = NULL;
 	IXML_Document *ActionRespXML = NULL;
     int ret = -1;
@@ -354,12 +350,13 @@ int CtrlPointSendAction(char *UDN, int service, char *actionname,
 
     dev = CtrlPointSearchDeviceListByUDN(UDN);
     if (dev) {
+		tvservice = &dev->TvService[service];
         if (param_count == 0) {
-            ActionXML = UpnpMakeAction(actionname, TvServiceType[service], 0, NULL);
+            ActionXML = UpnpMakeAction(actionname, tvservice->ServiceType, 0, NULL);
         } else {
             for (i=0;i<param_count;i++) {
-                if (UpnpAddToAction(&ActionXML, actionname, TvServiceType[service],
-                      param_name[param], param_val[param] ) != UPNP_E_SUCCESS) {
+                if (UpnpAddToAction(&ActionXML, actionname, tvservice->ServiceType,
+                      param_name[i], param_val[i] ) != UPNP_E_SUCCESS) {
                     SampleUtil_Print
                         ( "ERROR: TvCtrlPointSendAction: Trying to add action param" );
                     //return -1; // TBD - BAD! leaves mutex locked
@@ -367,8 +364,9 @@ int CtrlPointSendAction(char *UDN, int service, char *actionname,
             }
         }
 
-        ret = UpnpSendAction(ctrlpt_handle, dev->TvService[service].ControlURL,
-                            TvServiceType[service], NULL, ActionXML, &ActionRespXML);
+        ret = UpnpSendAction(ctrlpt_handle,
+			                tvservice->ControlURL, tvservice->ServiceType,
+                            NULL, ActionXML, &ActionRespXML);
 
         if (ret != UPNP_E_SUCCESS) {
             SampleUtil_Print( "Error in UpnpSendActionAsync -- %d", rc );
@@ -411,6 +409,7 @@ TvCtrlPointSendAction( int service,
                        int param_count )
 {
     struct TvDeviceNode *devnode;
+	struct tv_service *tvservice;
     IXML_Document *actionNode = NULL;
     int rc = TV_SUCCESS;
     int param;
@@ -419,16 +418,15 @@ TvCtrlPointSendAction( int service,
 
     rc = TvCtrlPointGetDevice( devnum, &devnode );
     if( TV_SUCCESS == rc ) {
+		tvservice = &devnode->device.TvService[service];
         if( 0 == param_count ) {
             actionNode =
-                UpnpMakeAction( actionname, TvServiceType[service], 0,
-                                NULL );
+                UpnpMakeAction(actionname, tvservice->ServiceType, 0, NULL);
         } else {
             for( param = 0; param < param_count; param++ ) {
-                if( UpnpAddToAction
-                    ( &actionNode, actionname, TvServiceType[service],
-                      param_name[param],
-                      param_val[param] ) != UPNP_E_SUCCESS ) {
+                if( UpnpAddToAction( &actionNode, actionname,
+                      tvservice->ServiceType,
+                      param_name[param], param_val[param] ) != UPNP_E_SUCCESS ) {
                     SampleUtil_Print
                         ( "ERROR: TvCtrlPointSendAction: Trying to add action param" );
                     //return -1; // TBD - BAD! leaves mutex locked
@@ -437,8 +435,7 @@ TvCtrlPointSendAction( int service,
         }
 
         rc = UpnpSendActionAsync( ctrlpt_handle,
-                                  devnode->device.TvService[service].
-                                  ControlURL, TvServiceType[service],
+                                  tvservice->ControlURL, tvservice->ServiceType,
                                   NULL, actionNode,
                                   TvCtrlPointCallbackEventHandler, NULL );
 
@@ -721,10 +718,12 @@ TvCtrlPointAddService( char *UDN,
 {
     struct TvDevice *device;
     char *serviceId = NULL;
+	char *serviceType = NULL;
     char *eventURL = NULL;
     char *controlURL = NULL;
     Upnp_SID eventSID;
     int TimeOut = default_timeout;
+	struct tv_service *tvservice;
 
     ithread_mutex_lock( &DeviceListMutex );
 
@@ -739,8 +738,7 @@ TvCtrlPointAddService( char *UDN,
 {
 	if( SampleUtil_FindAndParseService
 		( device->DescDoc, device->DescDocURL,
-		  TvServiceType[service],
-		  &serviceId, &eventURL, &controlURL ) ) {
+		  &serviceType, &serviceId, &eventURL, &controlURL ) ) {
 		SampleUtil_Print( "Subscribing to EventURL %s...",
 						  eventURL );
 
@@ -759,17 +757,18 @@ TvCtrlPointAddService( char *UDN,
 		}
 	} else {
 		SampleUtil_Print( "Error: Could not find Service: %s",
-						  TvServiceType[service] );
+						  serviceType );
 	}
 }
 
 	/* init service structure */
 {
-	strcpy( device->TvService[service].ServiceId, serviceId );
-	strcpy( device->TvService[service].ServiceType, TvServiceType[service] );
-	strcpy( device->TvService[service].ControlURL, controlURL );
-	strcpy( device->TvService[service].EventURL, eventURL );
-	strcpy( device->TvService[service].SID, eventSID );
+	tvservice = &device->TvService[service];
+	strcpy( tvservice->ServiceId, serviceId );
+	strcpy( tvservice->ServiceType, serviceType );
+	strcpy( tvservice->ControlURL, controlURL );
+	strcpy( tvservice->EventURL, eventURL );
+	strcpy( tvservice->SID, eventSID );
 
 	for( var = 0; var < TvVarCount[service]; var++ ) {
 		device->TvService[service].VariableStrVal[var] =
@@ -784,6 +783,8 @@ TvCtrlPointAddService( char *UDN,
 {
     if( serviceId )
         free( serviceId );
+	if( serviceType )
+		free( serviceType );
     if( controlURL )
         free( controlURL );
     if( eventURL )

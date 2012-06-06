@@ -76,7 +76,6 @@ extern "C" {
 #define TV_MAXVARS				TV_PICTURE_VARCOUNT
 
 extern char TvDeviceType[];
-extern char *TvServiceType[];
 extern char *TvServiceName[];
 extern char *TvVarName[TV_SERVICE_SERVCOUNT][TV_MAXVARS];
 extern char TvVarCount[];
@@ -94,10 +93,10 @@ extern struct TvDeviceNode *GlobalDeviceList;
 
 struct TvDevice {
     char UDN[250];
-    char DescDocURL[250];
+    char DescDocURL[250];	/* device xml file address(format is url) */
     char FriendlyName[250];
     char PresURL[250];
-	IXML_Document *DescDoc;
+	IXML_Document *DescDoc;	/* device xml file content(format is xml) */
     int  AdvrTimeOut;
     struct tv_service TvService[TV_SERVICE_SERVCOUNT];
 };
