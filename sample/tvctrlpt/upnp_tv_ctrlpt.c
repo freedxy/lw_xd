@@ -70,6 +70,18 @@ int default_timeout = 1801;
  */
 struct TvDeviceNode *GlobalDeviceList = NULL;
 
+static struct TvDevice *CtrlPointSearchDeviceListByUDN(char *UDN)
+{
+	struct TvDeviceNode *deviceNode = GlobalDeviceList;
+
+	while (deviceNode) {
+		if( strcmp( deviceNode->device.UDN, UDN ) == 0 ) {
+			return (deviceNode->device);
+		deviceNode = deviceNode->next;
+	}
+	return NULL;
+}
+
 /********************************************************************************
  * TvCtrlPointDeleteNode
  *
@@ -662,7 +674,7 @@ void
 TvCtrlPointAddService( char *UDN,
                        int service )
 {
-    struct TvDeviceNode *deviceNode;
+    struct TvDevice *device;
     char *serviceId = NULL;
     char *eventURL = NULL;
     char *controlURL = NULL;
@@ -670,25 +682,18 @@ TvCtrlPointAddService( char *UDN,
     int TimeOut = default_timeout;
 
     ithread_mutex_lock( &DeviceListMutex );
+
 	/* search device by UDN */
-{
-    deviceNode = GlobalDeviceList;
-	while (deviceNode) {
-		if( strcmp( deviceNode->device.UDN, UDN ) == 0 ) {
-			break;
-		}
-		deviceNode = deviceNode->next;
-	}
-	if (!deviceNode) {
+	device = CtrlPointSearchDeviceListByUDN(UDN);
+	if (!device) {
 		/* printf error */
 		return;
 	}
-}
 
 	/* subscribe one service */
 {
 	if( SampleUtil_FindAndParseService
-		( deviceNode->device.DescDoc, deviceNode->device.DescDocURL,
+		( device->DescDoc, device->DescDocURL,
 		  TvServiceType[service],
 		  &serviceId, &eventURL, &controlURL ) ) {
 		SampleUtil_Print( "Subscribing to EventURL %s...",
@@ -715,23 +720,16 @@ TvCtrlPointAddService( char *UDN,
 
 	/* init service structure */
 {
-	strcpy( deviceNode->device.TvService[service].ServiceId,
-			serviceId );
-	strcpy( deviceNode->device.TvService[service].ServiceType,
-			TvServiceType[service] );
-	strcpy( deviceNode->device.TvService[service].ControlURL,
-			controlURL );
-	strcpy( deviceNode->device.TvService[service].EventURL,
-			eventURL );
-	strcpy( deviceNode->device.TvService[service].SID,
-			eventSID );
+	strcpy( device->TvService[service].ServiceId, serviceId );
+	strcpy( device->TvService[service].ServiceType, TvServiceType[service] );
+	strcpy( device->TvService[service].ControlURL, controlURL );
+	strcpy( device->TvService[service].EventURL, eventURL );
+	strcpy( device->TvService[service].SID, eventSID );
 
 	for( var = 0; var < TvVarCount[service]; var++ ) {
-		deviceNode->device.TvService[service].
-			VariableStrVal[var] =
+		device->TvService[service].VariableStrVal[var] =
 			( char * )malloc( TV_MAX_VAL_LEN );
-		strcpy( deviceNode->device.TvService[service].
-				VariableStrVal[var], "" );
+		strcpy( device->TvService[service].VariableStrVal[var], "" );
 	}
 }
 
