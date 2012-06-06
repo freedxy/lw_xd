@@ -75,7 +75,7 @@ static struct TvDevice *CtrlPointSearchDeviceListByUDN(char *UDN)
 	struct TvDeviceNode *deviceNode = GlobalDeviceList;
 
 	while (deviceNode) {
-		if( strcmp( deviceNode->device.UDN, UDN ) == 0 ) {
+		if( strcmp( deviceNode->device.UDN, UDN ) == 0 )
 			return (deviceNode->device);
 		deviceNode = deviceNode->next;
 	}
