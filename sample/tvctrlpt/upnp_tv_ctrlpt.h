@@ -97,6 +97,7 @@ struct TvDevice {
     char DescDocURL[250];
     char FriendlyName[250];
     char PresURL[250];
+	IXML_Document *DescDoc;
     int  AdvrTimeOut;
     struct tv_service TvService[TV_SERVICE_SERVCOUNT];
 };
