@@ -341,6 +341,51 @@ TvCtrlPointGetBrightness( int devnum )
     return TvCtrlPointGetVar( TV_SERVICE_PICTURE, devnum, "Brightness" );
 }
 
+int CtrlPointSendAction(char *UDN, int service, char *actionname,
+                        char **param_name, char **param_val, int param_count)
+{
+    struct TvDevice *dev;
+    IXML_Document *ActionXML = NULL;
+	IXML_Document *ActionRespXML = NULL;
+    int ret = -1;
+    int i;
+
+    ithread_mutex_lock(&DeviceListMutex);
+
+    dev = CtrlPointSearchDeviceListByUDN(UDN);
+    if (dev) {
+        if (param_count == 0) {
+            ActionXML = UpnpMakeAction(actionname, TvServiceType[service], 0, NULL);
+        } else {
+            for (i=0;i<param_count;i++) {
+                if (UpnpAddToAction(&ActionXML, actionname, TvServiceType[service],
+                      param_name[param], param_val[param] ) != UPNP_E_SUCCESS) {
+                    SampleUtil_Print
+                        ( "ERROR: TvCtrlPointSendAction: Trying to add action param" );
+                    //return -1; // TBD - BAD! leaves mutex locked
+                }
+            }
+        }
+
+        ret = UpnpSendAction(ctrlpt_handle, dev->TvService[service].ControlURL,
+                            TvServiceType[service], NULL, ActionXML, &ActionRespXML);
+
+        if (ret != UPNP_E_SUCCESS) {
+            SampleUtil_Print( "Error in UpnpSendActionAsync -- %d", rc );
+            ret = -1;
+        }
+    }
+
+    ithread_mutex_unlock( &DeviceListMutex );
+
+    if(ActionXML)
+        ixmlDocument_free(ActionXML);
+	if (ActionRespXML)
+		ixmlDocument_free(ActionRespXML);
+
+    return ret;
+}
+
 /********************************************************************************
  * TvCtrlPointSendAction
  *
