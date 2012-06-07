@@ -336,6 +336,25 @@ TvCtrlPointGetBrightness( int devnum )
     return TvCtrlPointGetVar( TV_SERVICE_PICTURE, devnum, "Brightness" );
 }
 
+/* A sample for ushare "Browse" service action.
+   in:
+   actionname = "Browse"
+   param_name[0] = "ObjectID"
+   param_val[0] = "0"
+   param_name[1] = "BrowseFlag"
+   param_val[1] = "BrowseDirectChildren"
+   param_name[2] = "Filter"
+   param_val[2] = "*"
+   param_name[3] = "StartingIndex"
+   param_val[3] = "0"
+   param_name[4] = "RequestedCount"
+   param_val[4] = "0"
+   param_name[5] = "SortCriteria"
+   param_val[5] = ""
+   param_count = 5
+   out:
+   print by ixmlPrintDocument
+*/
 int CtrlPointSendAction(char *UDN, int service, char *actionname,
                         char **param_name, char **param_val, int param_count)
 {
@@ -343,6 +362,7 @@ int CtrlPointSendAction(char *UDN, int service, char *actionname,
 	struct tv_service *tvservice;
     IXML_Document *ActionXML = NULL;
 	IXML_Document *ActionRespXML = NULL;
+	char *outs = NULL;
     int ret = -1;
     int i;
 
@@ -376,6 +396,14 @@ int CtrlPointSendAction(char *UDN, int service, char *actionname,
 
     ithread_mutex_unlock( &DeviceListMutex );
 
+	/* print respond action xml */
+	outs = ixmlPrintDocument(ActionRespXML);
+	printf("=============================");
+	printf("%s\n", outs);
+	printf("=============================");
+
+	if (outs)
+		ixmlFreeDOMString(outs);
     if(ActionXML)
         ixmlDocument_free(ActionXML);
 	if (ActionRespXML)
