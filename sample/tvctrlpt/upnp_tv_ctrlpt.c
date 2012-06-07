@@ -300,45 +300,11 @@ TvCtrlPointGetPower( int devnum )
     return TvCtrlPointGetVar( TV_SERVICE_CONTROL, devnum, "Power" );
 }
 
-int
-TvCtrlPointGetChannel( int devnum )
-{
-    return TvCtrlPointGetVar( TV_SERVICE_CONTROL, devnum, "Channel" );
-}
-
-int
-TvCtrlPointGetVolume( int devnum )
-{
-    return TvCtrlPointGetVar( TV_SERVICE_CONTROL, devnum, "Volume" );
-}
-
-int
-TvCtrlPointGetColor( int devnum )
-{
-    return TvCtrlPointGetVar( TV_SERVICE_PICTURE, devnum, "Color" );
-}
-
-int
-TvCtrlPointGetTint( int devnum )
-{
-    return TvCtrlPointGetVar( TV_SERVICE_PICTURE, devnum, "Tint" );
-}
-
-int
-TvCtrlPointGetContrast( int devnum )
-{
-    return TvCtrlPointGetVar( TV_SERVICE_PICTURE, devnum, "Contrast" );
-}
-
-int
-TvCtrlPointGetBrightness( int devnum )
-{
-    return TvCtrlPointGetVar( TV_SERVICE_PICTURE, devnum, "Brightness" );
-}
-
 /* A sample for ushare "Browse" service action.
    in:
    actionname = "Browse"
+   char *param_name[];
+   char *param_val[];
    param_name[0] = "ObjectID"
    param_val[0] = "0"
    param_name[1] = "BrowseFlag"
@@ -481,99 +447,25 @@ TvCtrlPointSendAction( int service,
     return rc;
 }
 
-/********************************************************************************
- * TvCtrlPointSendActionNumericArg
- *
- * Description:Send an action with one argument to a device in the global device list.
- *
- * Parameters:
- *   devnum -- The number of the device (order in the list, starting with 1)
- *   service -- TV_SERVICE_CONTROL or TV_SERVICE_PICTURE
- *   actionName -- The device action, i.e., "SetChannel"
- *   paramName -- The name of the parameter that is being passed
- *   paramValue -- Actual value of the parameter being passed
- *
- ********************************************************************************/
-int
-TvCtrlPointSendActionNumericArg( int devnum,
-                                 int service,
-                                 char *actionName,
-                                 char *paramName,
-                                 int paramValue )
-{
-    char param_val_a[50];
-    char *param_val = param_val_a;
-
-    sprintf( param_val_a, "%d", paramValue );
-
-    return TvCtrlPointSendAction( service, devnum, actionName, &paramName,
-                                  &param_val, 1 );
-}
-
-int
-TvCtrlPointSendPowerOn( int devnum )
+int TvCtrlPointSendPowerOn(int devnum)
 {
     return TvCtrlPointSendAction( TV_SERVICE_CONTROL, devnum, "PowerOn",
                                   NULL, NULL, 0 );
 }
 
-int
-TvCtrlPointSendPowerOff( int devnum )
+int TvCtrlPointSendSetChannel(int devnum, int channel)
 {
-    return TvCtrlPointSendAction( TV_SERVICE_CONTROL, devnum, "PowerOff",
-                                  NULL, NULL, 0 );
-}
+#define PNUM 1
+	char *param_name[PNUM];
+	char *param_val[PNUM];
+	char param_val_tmp[50];
 
-int
-TvCtrlPointSendSetChannel( int devnum,
-                           int channel )
-{
-    return TvCtrlPointSendActionNumericArg( devnum, TV_SERVICE_CONTROL,
-                                            "SetChannel", "Channel",
-                                            channel );
-}
+	param_name[0] = "Channel";
+	sprintf(param_val_tmp, "%d", channel);
+	param_val[1] = param_val_tmp;
 
-int
-TvCtrlPointSendSetVolume( int devnum,
-                          int volume )
-{
-    return TvCtrlPointSendActionNumericArg( devnum, TV_SERVICE_CONTROL,
-                                            "SetVolume", "Volume",
-                                            volume );
-}
-
-int
-TvCtrlPointSendSetColor( int devnum,
-                         int color )
-{
-    return TvCtrlPointSendActionNumericArg( devnum, TV_SERVICE_PICTURE,
-                                            "SetColor", "Color", color );
-}
-
-int
-TvCtrlPointSendSetTint( int devnum,
-                        int tint )
-{
-    return TvCtrlPointSendActionNumericArg( devnum, TV_SERVICE_PICTURE,
-                                            "SetTint", "Tint", tint );
-}
-
-int
-TvCtrlPointSendSetContrast( int devnum,
-                            int contrast )
-{
-    return TvCtrlPointSendActionNumericArg( devnum, TV_SERVICE_PICTURE,
-                                            "SetContrast", "Contrast",
-                                            contrast );
-}
-
-int
-TvCtrlPointSendSetBrightness( int devnum,
-                              int brightness )
-{
-    return TvCtrlPointSendActionNumericArg( devnum, TV_SERVICE_PICTURE,
-                                            "SetBrightness", "Brightness",
-                                            brightness );
+	return TvCtrlPointSendAction(TV_SERVICE_CONTROL, devnum, "SetChannel",
+								&param_name, &param_val, PNUM);
 }
 
 /********************************************************************************
