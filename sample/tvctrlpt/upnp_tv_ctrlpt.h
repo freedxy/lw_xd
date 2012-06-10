@@ -120,13 +120,7 @@ int		TvCtrlPointRefresh( void );
 int		TvCtrlPointSendAction(int, int, char *, char **, char **, int);
 int		TvCtrlPointSendActionNumericArg(int devnum, int service, char *actionName, char *paramName, int paramValue);
 int		TvCtrlPointSendPowerOn(int devnum);
-int		TvCtrlPointSendPowerOff(int devnum);
 int		TvCtrlPointSendSetChannel(int, int);
-int		TvCtrlPointSendSetVolume(int, int);
-int		TvCtrlPointSendSetColor(int, int);
-int		TvCtrlPointSendSetTint(int, int);
-int		TvCtrlPointSendSetContrast(int, int);
-int		TvCtrlPointSendSetBrightness(int, int);
 
 int		TvCtrlPointGetVar(int, int, char*);
 int		TvCtrlPointGetPower(int devnum);

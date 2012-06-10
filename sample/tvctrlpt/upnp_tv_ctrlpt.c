@@ -71,7 +71,7 @@ static struct TvDevice *CtrlPointSearchDeviceListByUDN(char *UDN)
 
 	while (deviceNode) {
 		if( strcmp( deviceNode->device.UDN, UDN ) == 0 )
-			return (deviceNode->device);
+			return (&deviceNode->device);
 		deviceNode = deviceNode->next;
 	}
 	return NULL;
@@ -101,8 +101,8 @@ TvCtrlPointDeleteNode( struct TvDeviceNode *node )
         return TV_ERROR;
     }
 
-	if( TvDeviceNode->device.DescDoc )
-		ixmlDocument_free(TvDeviceNode->device.DescDoc);
+	if( node->device.DescDoc )
+		ixmlDocument_free(node->device.DescDoc);
 
     for( service = 0; service < TV_SERVICE_SERVCOUNT; service++ ) {
         /*
@@ -355,7 +355,7 @@ int CtrlPointSendAction(char *UDN, int service, char *actionname,
                             NULL, ActionXML, &ActionRespXML);
 
         if (ret != UPNP_E_SUCCESS) {
-            SampleUtil_Print( "Error in UpnpSendActionAsync -- %d", rc );
+            SampleUtil_Print( "Error in UpnpSendActionAsync -- %d", ret );
             ret = -1;
         }
     }
@@ -465,7 +465,7 @@ int TvCtrlPointSendSetChannel(int devnum, int channel)
 	param_val[1] = param_val_tmp;
 
 	return TvCtrlPointSendAction(TV_SERVICE_CONTROL, devnum, "SetChannel",
-								&param_name, &param_val, PNUM);
+								&param_name[0], &param_val[0], PNUM);
 }
 
 /********************************************************************************
@@ -644,6 +644,7 @@ TvCtrlPointAddService( char *UDN,
     Upnp_SID eventSID;
     int TimeOut = default_timeout;
 	struct tv_service *tvservice;
+	int ret = -1;
 
     ithread_mutex_lock( &DeviceListMutex );
 
@@ -654,6 +655,7 @@ TvCtrlPointAddService( char *UDN,
 		return;
 	}
 
+	tvservice = &device->TvService[service];
 	/* subscribe one service */
 {
 	if( SampleUtil_FindAndParseService
@@ -683,18 +685,18 @@ TvCtrlPointAddService( char *UDN,
 
 	/* init service structure */
 {
-	tvservice = &device->TvService[service];
 	strcpy( tvservice->ServiceId, serviceId );
 	strcpy( tvservice->ServiceType, serviceType );
 	strcpy( tvservice->ControlURL, controlURL );
 	strcpy( tvservice->EventURL, eventURL );
 	strcpy( tvservice->SID, eventSID );
-
+/*
 	for( var = 0; var < TvVarCount[service]; var++ ) {
 		device->TvService[service].VariableStrVal[var] =
 			( char * )malloc( TV_MAX_VAL_LEN );
 		strcpy( device->TvService[service].VariableStrVal[var], "" );
 	}
+*/
 }
 
     ithread_mutex_unlock( &DeviceListMutex );
@@ -763,6 +765,7 @@ TvCtrlPointAddDevice( IXML_Document * DescDoc,
         SampleUtil_Print( "Error generating presURL from %s + %s", baseURL,
                           relURL );
 
+	/* only add known device, which can be used. */
     if( strcmp( deviceType, TvDeviceType ) == 0 ) {
         SampleUtil_Print( "Found Tv device" );
 
@@ -794,7 +797,7 @@ TvCtrlPointAddDevice( IXML_Document * DescDoc,
             strcpy( deviceNode->device.FriendlyName, friendlyName );
             strcpy( deviceNode->device.PresURL, presURL );
             deviceNode->device.AdvrTimeOut = expires;
-			deviceNode->DescDoc = DescDoc;
+			deviceNode->device.DescDoc = DescDoc;
 
 			/* init service structure */
 

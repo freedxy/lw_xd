@@ -299,32 +299,8 @@ TvCtrlPointProcessCommand( char *cmdline )
             TvCtrlPointSendPowerOn( arg1 );
             break;
 
-        case POWOFF:
-            TvCtrlPointSendPowerOff( arg1 );
-            break;
-
         case SETCHAN:
             TvCtrlPointSendSetChannel( arg1, arg2 );
-            break;
-
-        case SETVOL:
-            TvCtrlPointSendSetVolume( arg1, arg2 );
-            break;
-
-        case SETCOL:
-            TvCtrlPointSendSetColor( arg1, arg2 );
-            break;
-
-        case SETTINT:
-            TvCtrlPointSendSetTint( arg1, arg2 );
-            break;
-
-        case SETCONT:
-            TvCtrlPointSendSetContrast( arg1, arg2 );
-            break;
-
-        case SETBRT:
-            TvCtrlPointSendSetBrightness( arg1, arg2 );
             break;
 
         case CTRLACTION:
