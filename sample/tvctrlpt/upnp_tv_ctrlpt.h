@@ -51,7 +51,7 @@ extern "C" {
 #include "upnptools.h"
 #include "sample_util.h"
 
-#define TV_SERVICE_SERVCOUNT	2
+#define TV_SERVICE_SERVCOUNT	3
 #define TV_SERVICE_CONTROL		0
 #define TV_SERVICE_PICTURE		1
 
@@ -87,6 +87,7 @@ struct tv_service {
     char EventURL[NAME_SIZE];
     char ControlURL[NAME_SIZE];
     char SID[NAME_SIZE];
+	int TvServiceState;
 };
 
 extern struct TvDeviceNode *GlobalDeviceList;

@@ -77,6 +77,105 @@ static struct TvDevice *CtrlPointSearchDeviceListByUDN(char *UDN)
 	return NULL;
 }
 
+static void CtrlPointAddDeviceList(struct TvDeviceNode *deviceNode)
+{
+	struct TvDeviceNode *tmpdevnode = GlobalDeviceList;
+
+	deviceNode->next = NULL;
+
+	// Insert the new device node in the list
+	if (tmpdevnode) {
+		while (tmpdevnode) {
+			if (tmpdevnode->next) {
+				tmpdevnode = tmpdevnode->next;
+			} else {
+				tmpdevnode->next = deviceNode;
+				break;
+			}
+		}
+	} else {
+		GlobalDeviceList = deviceNode;
+	}
+}
+
+static int CtrlPointFindAndParseService(
+			IXML_Document *DescDoc, char *location, struct TvDevice *tvdevice)
+{
+	int i, length;
+	int ret;
+	char *serviceType = NULL;
+	char *serviceId = NULL;
+	char *baseURL = NULL;
+	char *base;
+	char *relcontrolURL = NULL, *releventURL = NULL;
+	char *controlURL = NULL, *eventURL = NULL;
+	IXML_NodeList *serviceList = NULL;
+	IXML_Element *service = NULL;
+
+	baseURL = SampleUtil_GetFirstDocumentItem(DescDoc, "URLBase");
+	if (baseURL)
+		base = baseURL;
+	else
+	base = location;
+
+	serviceList = SampleUtil_GetFirstServiceList(DescDoc);
+	length = ixmlNodeList_length(serviceList);
+	for (i=0;i<length;i++) {
+		struct tv_service *tvservice = &tvdevice->TvService[length];
+		tvservice->TvServiceState = 0;
+        service = (IXML_Element *)ixmlNodeList_item(serviceList, i);
+
+		serviceType = SampleUtil_GetFirstElementItem((IXML_Element *)service, "serviceType");
+		strcpy(tvservice->ServiceType, serviceType);
+
+		serviceId = SampleUtil_GetFirstElementItem(service, "serviceId");
+		strcpy(tvservice->ServiceId, serviceId);
+
+		relcontrolURL = SampleUtil_GetFirstElementItem(service, "controlURL");
+		releventURL = SampleUtil_GetFirstElementItem(service, "eventSubURL");
+
+		controlURL = malloc(strlen(base) + strlen(relcontrolURL) + 1);
+		if (controlURL) {
+			ret = UpnpResolveURL(base, relcontrolURL, controlURL);
+			if (ret != UPNP_E_SUCCESS)
+				SampleUtil_Print("Error generating controlURL from %s + %s\n",
+								base, relcontrolURL );
+		}
+		strcpy(tvservice->ControlURL, controlURL);
+
+		eventURL = malloc(strlen(base) + strlen(releventURL) + 1);
+		if (eventURL) {
+			ret = UpnpResolveURL(base, releventURL, eventURL);
+			if (ret != UPNP_E_SUCCESS)
+				SampleUtil_Print("Error generating eventURL from %s + %s\n",
+								base, releventURL);
+		}
+		strcpy(tvservice->EventURL, eventURL);
+
+		if (relcontrolURL)
+			free(relcontrolURL);
+		if (controlURL)
+			free(controlURL);
+		if (releventURL)
+			free(releventURL);
+		if (eventURL)
+			free(eventURL);
+		relcontrolURL = releventURL = NULL;
+		controlURL = eventURL = NULL;
+		if (serviceType)
+			free(serviceType);
+		serviceType = NULL;
+	}
+
+	if (serviceList)
+		ixmlNodeList_free(serviceList);
+	if (baseURL)
+		free(baseURL);
+
+	return length;
+}
+
+
 /********************************************************************************
  * TvCtrlPointDeleteNode
  *
@@ -632,9 +731,7 @@ TvCtrlPointPrintDevice( int devnum )
     return TV_SUCCESS;
 }
 
-void
-TvCtrlPointAddService( char *UDN,
-                       int service )
+int CtrlPointAddService(char *UDN, int service)
 {
     struct TvDevice *device;
     char *serviceId = NULL;
@@ -652,66 +749,27 @@ TvCtrlPointAddService( char *UDN,
 	device = CtrlPointSearchDeviceListByUDN(UDN);
 	if (!device) {
 		/* printf error */
-		return;
+		goto addexit;
 	}
 
 	tvservice = &device->TvService[service];
+	if (tvservice->TvServiceState) {
+		/* service is already used */
+		goto addexit;
+	}
+	tvservice->TvServiceState = 1;
 	/* subscribe one service */
-{
-	if( SampleUtil_FindAndParseService
-		( device->DescDoc, device->DescDocURL,
-		  &serviceType, &serviceId, &eventURL, &controlURL ) ) {
-		SampleUtil_Print( "Subscribing to EventURL %s...",
-						  eventURL );
-
-		ret =
-			UpnpSubscribe( ctrlpt_handle, eventURL,
-						   &TimeOut, eventSID );
-
-		if( ret == UPNP_E_SUCCESS ) {
-			SampleUtil_Print
-				( "Subscribed to EventURL with SID=%s",
-				  eventSID );
-		} else {
-			SampleUtil_Print
-				( "Error Subscribing to EventURL -- %d", ret );
-			strcpy( eventSID, "" );
-		}
+	ret = UpnpSubscribe(ctrlpt_handle, eventURL, &TimeOut, eventSID);
+	if (ret == UPNP_E_SUCCESS) {
+		SampleUtil_Print("Subscribed to EventURL with SID=%s", eventSID);
 	} else {
-		SampleUtil_Print( "Error: Could not find Service: %s",
-						  serviceType );
+		SampleUtil_Print("Error Subscribing to EventURL -- %d", ret);
+		strcpy(eventSID, "");
 	}
-}
+	strcpy(tvservice->SID, eventSID);
 
-	/* init service structure */
-{
-	strcpy( tvservice->ServiceId, serviceId );
-	strcpy( tvservice->ServiceType, serviceType );
-	strcpy( tvservice->ControlURL, controlURL );
-	strcpy( tvservice->EventURL, eventURL );
-	strcpy( tvservice->SID, eventSID );
-/*
-	for( var = 0; var < TvVarCount[service]; var++ ) {
-		device->TvService[service].VariableStrVal[var] =
-			( char * )malloc( TV_MAX_VAL_LEN );
-		strcpy( device->TvService[service].VariableStrVal[var], "" );
-	}
-*/
-}
-
-    ithread_mutex_unlock( &DeviceListMutex );
-
-	/* clear service */
-{
-    if( serviceId )
-        free( serviceId );
-	if( serviceType )
-		free( serviceType );
-    if( controlURL )
-        free( controlURL );
-    if( eventURL )
-        free( eventURL );
-}
+addexit:
+    ithread_mutex_unlock(&DeviceListMutex);
 }
 
 /********************************************************************************
@@ -740,6 +798,7 @@ TvCtrlPointAddDevice( IXML_Document * DescDoc,
     char *UDN = NULL;
     struct TvDeviceNode *deviceNode;
     struct TvDeviceNode *tmpdevnode;
+	struct TvDevice *tvdevice;
     int ret = 1;
     int found = 0;
     int service,
@@ -752,77 +811,42 @@ TvCtrlPointAddDevice( IXML_Document * DescDoc,
      */
     UDN = SampleUtil_GetFirstDocumentItem( DescDoc, "UDN" );
     deviceType = SampleUtil_GetFirstDocumentItem( DescDoc, "deviceType" );
-    friendlyName =
-        SampleUtil_GetFirstDocumentItem( DescDoc, "friendlyName" );
+    friendlyName = SampleUtil_GetFirstDocumentItem( DescDoc, "friendlyName" );
     baseURL = SampleUtil_GetFirstDocumentItem( DescDoc, "URLBase" );
     relURL = SampleUtil_GetFirstDocumentItem( DescDoc, "presentationURL" );
 
-    ret =
-        UpnpResolveURL( ( baseURL ? baseURL : location ), relURL,
-                        presURL );
+    ret = UpnpResolveURL((baseURL?baseURL:location), relURL, presURL);
 
-    if( UPNP_E_SUCCESS != ret )
-        SampleUtil_Print( "Error generating presURL from %s + %s", baseURL,
-                          relURL );
-
-	/* only add known device, which can be used. */
-    if( strcmp( deviceType, TvDeviceType ) == 0 ) {
-        SampleUtil_Print( "Found Tv device" );
+    if (UPNP_E_SUCCESS != ret)
+		SampleUtil_Print("Error generating presURL from %s + %s", baseURL, relURL );
 
         // Check if this device is already in the list
-        tmpdevnode = GlobalDeviceList;
-        while( tmpdevnode ) {
-            if( strcmp( tmpdevnode->device.UDN, UDN ) == 0 ) {
-                found = 1;
-                break;
-            }
-            tmpdevnode = tmpdevnode->next;
-        }
-
-        if( found ) {
+        /* UND is unique: two device of same ushare  */
+        tvdevice = CtrlPointSearchDeviceListByUDN(UDN);
+        if (!tvdevice) {
             // The device is already there, so just update 
             // the advertisement timeout field
-            tmpdevnode->device.AdvrTimeOut = expires;
+            tvdevice->AdvrTimeOut = expires;
         } else {
-            /* subscribe one service */
-
-            /*
-               Create a new device node 
-             */
-            deviceNode =
-                ( struct TvDeviceNode * )
-                malloc( sizeof( struct TvDeviceNode ) );
-            strcpy( deviceNode->device.UDN, UDN );
-            strcpy( deviceNode->device.DescDocURL, location );
-            strcpy( deviceNode->device.FriendlyName, friendlyName );
-            strcpy( deviceNode->device.PresURL, presURL );
-            deviceNode->device.AdvrTimeOut = expires;
-			deviceNode->device.DescDoc = DescDoc;
+			/* Create a new device node and device structure */
+			deviceNode = (struct TvDeviceNode *)malloc(sizeof(struct TvDeviceNode));
+			tvdevice = &deviceNode->device;
+            strcpy(tvdevice->UDN, UDN);
+            strcpy(tvdevice->DescDocURL, location);
+            strcpy(tvdevice->FriendlyName, friendlyName);
+            strcpy(tvdevice->PresURL, presURL);
+            tvdevice->AdvrTimeOut = expires;
+			tvdevice->DescDoc = DescDoc;
 
 			/* init service structure */
+			CtrlPointFindAndParseService(DescDoc, location, tvdevice);
 
-            deviceNode->next = NULL;
-
-            // Insert the new device node in the list
-            if( ( tmpdevnode = GlobalDeviceList ) ) {
-
-                while( tmpdevnode ) {
-                    if( tmpdevnode->next ) {
-                        tmpdevnode = tmpdevnode->next;
-                    } else {
-                        tmpdevnode->next = deviceNode;
-                        break;
-                    }
-                }
-            } else {
-                GlobalDeviceList = deviceNode;
-            }
+			CtrlPointAddDeviceList(deviceNode);
 
             //Notify New Device Added
             SampleUtil_StateUpdate( NULL, NULL, deviceNode->device.UDN,
                                     DEVICE_ADDED );
         }
-    }
 
     ithread_mutex_unlock( &DeviceListMutex );
 
