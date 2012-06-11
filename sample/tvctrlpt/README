@@ -1,0 +1,5 @@
+1. upnp lib and include directory
+   default is /usr/local
+   you can modify Makefile file to change it.
+2. it only is simple test.
+   you can use listdev command in ./tv_ctrlpt

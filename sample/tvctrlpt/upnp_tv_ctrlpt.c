@@ -121,7 +121,8 @@ static int CtrlPointFindAndParseService(
 	serviceList = SampleUtil_GetFirstServiceList(DescDoc);
 	length = ixmlNodeList_length(serviceList);
 	for (i=0;i<length;i++) {
-		struct tv_service *tvservice = &tvdevice->TvService[length];
+		struct tv_service *tvservice;
+		tvservice = &tvdevice->TvService[i];
 		tvservice->TvServiceState = 0;
         service = (IXML_Element *)ixmlNodeList_item(serviceList, i);
 
@@ -165,6 +166,9 @@ static int CtrlPointFindAndParseService(
 		if (serviceType)
 			free(serviceType);
 		serviceType = NULL;
+		if (serviceId)
+			free(serviceId);
+		serviceId = NULL;
 	}
 
 	if (serviceList)
@@ -823,7 +827,7 @@ TvCtrlPointAddDevice( IXML_Document * DescDoc,
         // Check if this device is already in the list
         /* UND is unique: two device of same ushare  */
         tvdevice = CtrlPointSearchDeviceListByUDN(UDN);
-        if (!tvdevice) {
+        if (tvdevice) {
             // The device is already there, so just update 
             // the advertisement timeout field
             tvdevice->AdvrTimeOut = expires;

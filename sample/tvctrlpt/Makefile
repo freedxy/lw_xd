@@ -1,5 +1,5 @@
 
-UPNP_DIR=/home/wangli/MyProject/test_upnp/libupnp-1.6.6/upnp_tmp
+UPNP_DIR=/usr/local
 UPNP_INC=$(UPNP_DIR)/include/upnp/
 UPNP_LIB=$(UPNP_DIR)/lib/
 
@@ -10,7 +10,7 @@ all:
 	linux/upnp_tv_ctrlpt_main.c \
 	../common/sample_util.c \
 	-o tv_ctrlpt \
-	-lixml -lthreadutil -lupnp
+	-lixml -lthreadutil -lupnp -g
 
 clean:
 	rm -rf tv_ctrlpt
