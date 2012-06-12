@@ -99,6 +99,7 @@ struct TvDevice {
     char PresURL[250];
 	IXML_Document *DescDoc;	/* device xml file content(format is xml) */
     int  AdvrTimeOut;
+	int tv_service_num;
     struct tv_service TvService[TV_SERVICE_SERVCOUNT];
 };
 

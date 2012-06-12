@@ -101,7 +101,7 @@ static void CtrlPointAddDeviceList(struct TvDeviceNode *deviceNode)
 static int CtrlPointFindAndParseService(
 			IXML_Document *DescDoc, char *location, struct TvDevice *tvdevice)
 {
-	int i, length;
+	int i;
 	int ret;
 	char *serviceType = NULL;
 	char *serviceId = NULL;
@@ -119,8 +119,8 @@ static int CtrlPointFindAndParseService(
 	base = location;
 
 	serviceList = SampleUtil_GetFirstServiceList(DescDoc);
-	length = ixmlNodeList_length(serviceList);
-	for (i=0;i<length;i++) {
+	tvdevice->tv_service_num = ixmlNodeList_length(serviceList);
+	for (i=0;i<tvdevice->tv_service_num;i++) {
 		struct tv_service *tvservice;
 		tvservice = &tvdevice->TvService[i];
 		tvservice->TvServiceState = 0;
@@ -176,7 +176,7 @@ static int CtrlPointFindAndParseService(
 	if (baseURL)
 		free(baseURL);
 
-	return length;
+	return (tvdevice->tv_service_num);
 }
 
 
@@ -696,7 +696,7 @@ TvCtrlPointPrintDevice( int devnum )
         SampleUtil_Print( "    +- Adver. TimeOut = %d",
                           tmpdevnode->device.AdvrTimeOut );
 
-        for( service = 0; service < TV_SERVICE_SERVCOUNT; service++ ) {
+        for (service=0;service<tmpdevnode->device.tv_service_num;service++) {
             if( service < TV_SERVICE_SERVCOUNT - 1 )
                 sprintf( spacer, "    |    " );
             else
