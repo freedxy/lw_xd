@@ -752,27 +752,75 @@ int CtrlPointAddService(char *UDN, int service)
 	/* search device by UDN */
 	device = CtrlPointSearchDeviceListByUDN(UDN);
 	if (!device) {
-		/* printf error */
+		SampleUtil_Print("Error subscribe: No found device(%s)", UDN);
+		goto addexit;
+	}
+
+	if (service >= device->tv_service_num) {
+		SampleUtil_Print("Error subscribe: service exceed(%d)", service);
 		goto addexit;
 	}
 
 	tvservice = &device->TvService[service];
 	if (tvservice->TvServiceState) {
-		/* service is already used */
+		SampleUtil_Print("Error subscribe: service already subscribed");
 		goto addexit;
 	}
-	tvservice->TvServiceState = 1;
+
 	/* subscribe one service */
-	ret = UpnpSubscribe(ctrlpt_handle, eventURL, &TimeOut, eventSID);
+	ret = UpnpSubscribe(ctrlpt_handle, tvservice->EventURL, &TimeOut, eventSID);
 	if (ret == UPNP_E_SUCCESS) {
 		SampleUtil_Print("Subscribed to EventURL with SID=%s", eventSID);
 	} else {
 		SampleUtil_Print("Error Subscribing to EventURL -- %d", ret);
 		strcpy(eventSID, "");
+		goto addexit;
 	}
 	strcpy(tvservice->SID, eventSID);
+	tvservice->TvServiceState = 1;
 
 addexit:
+    ithread_mutex_unlock(&DeviceListMutex);
+}
+
+int CtrlPointRemoveService(char *UDN, int service)
+{
+    struct TvDevice *device;
+	struct tv_service *tvservice;
+	int ret = -1;
+
+    ithread_mutex_lock( &DeviceListMutex );
+
+	/* search device by UDN */
+	device = CtrlPointSearchDeviceListByUDN(UDN);
+	if (!device) {
+		SampleUtil_Print("Error unsubscribe: No found device(%s)", UDN);
+		goto removeexit;
+	}
+
+	if (service >= device->tv_service_num) {
+		SampleUtil_Print("Error unsubscribe: service exceed(%d)", service);
+		goto removeexit;
+	}
+
+	tvservice = &device->TvService[service];
+	if (!tvservice->TvServiceState) {
+		SampleUtil_Print("Error unsubscribe: service not subscribed");
+		goto removeexit;
+	}
+
+	/* subscribe one service */
+	ret = UpnpUnSubscribe(ctrlpt_handle, tvservice->SID);
+	if (ret == UPNP_E_SUCCESS) {
+		SampleUtil_Print("unsubscribed");
+	} else {
+		SampleUtil_Print("Error unsubscribing");
+		goto removeexit;
+	}
+	strcpy(tvservice->SID, "");
+	tvservice->TvServiceState = 0;
+
+removeexit:
     ithread_mutex_unlock(&DeviceListMutex);
 }
 
@@ -988,10 +1036,11 @@ TvCtrlPointHandleEvent( Upnp_SID sid,
                 0 ) {
                 SampleUtil_Print( "Received Tv %s Event: %d for SID %s",
                                   TvServiceName[service], evntkey, sid );
-
+#if 0
                 TvStateUpdate( tmpdevnode->device.UDN, service, changes,
                                ( char ** )&tmpdevnode->device.
                                TvService[service].VariableStrVal );
+#endif
                 break;
             }
         }
@@ -1094,7 +1143,7 @@ TvCtrlPointCallbackEventHandler( Upnp_EventType EventType,
                                  void *Event,
                                  void *Cookie )
 {
-    SampleUtil_PrintEvent( EventType, Event );
+//    SampleUtil_PrintEvent( EventType, Event );
 
     switch ( EventType ) {
             /*
@@ -1125,7 +1174,7 @@ TvCtrlPointCallbackEventHandler( Upnp_EventType EventType,
                                           d_event->Expires );
                 }
 
-                TvCtrlPointPrintList();
+//                TvCtrlPointPrintList();
                 break;
             }
 

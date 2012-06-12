@@ -44,7 +44,7 @@ enum cmdloop_tvcmds {
     PRTHELP = 0, PRTFULLHELP, POWON, POWOFF,
     SETCHAN, SETVOL, SETCOL, SETTINT, SETCONT, SETBRT,
     CTRLACTION, PICTACTION, CTRLGETVAR, PICTGETVAR,
-    PRTDEV, LSTDEV, REFRESH, EXITCMD
+    UNSUBSCRIBE, SUBSCRIBE, PRTDEV, LSTDEV, REFRESH, EXITCMD
 };
 
 /*
@@ -68,6 +68,8 @@ static struct cmdloop_commands cmdloop_cmdlist[] = {
     {"ListDev", LSTDEV, 1, ""},
     {"Refresh", REFRESH, 1, ""},
     {"PrintDev", PRTDEV, 2, "<devnum>"},
+    {"Subscribe", SUBSCRIBE, 3, "<devnum> <service (int)>"},
+    {"Unsubscribe", UNSUBSCRIBE, 3, "<devnum> <service (int)>"},
     {"PowerOn", POWON, 2, "<devnum>"},
     {"PowerOff", POWOFF, 2, "<devnum>"},
     {"SetChannel", SETCHAN, 3, "<devnum> <channel (int)>"},
@@ -357,6 +359,18 @@ TvCtrlPointProcessCommand( char *cmdline )
             TvCtrlPointPrintList();
             break;
 
+		case SUBSCRIBE: {
+			struct TvDeviceNode *devnode;
+			TvCtrlPointGetDevice(arg1, &devnode);
+            CtrlPointAddService(devnode->device.UDN, arg2);
+            break;
+		}
+		case UNSUBSCRIBE: {
+			struct TvDeviceNode *devnode;
+			TvCtrlPointGetDevice(arg1, &devnode);
+            CtrlPointRemoveService(devnode->device.UDN, arg2);
+            break;
+		}
         case REFRESH:
             TvCtrlPointRefresh();
             break;
