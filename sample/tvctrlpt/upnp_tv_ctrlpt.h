@@ -95,6 +95,7 @@ extern struct TvDeviceNode *GlobalDeviceList;
 struct TvDevice {
     char UDN[250];
     char DescDocURL[250];	/* device xml file address(format is url) */
+	char DeviceType[250];
     char FriendlyName[250];
     char PresURL[250];
 	IXML_Document *DescDoc;	/* device xml file content(format is xml) */

@@ -689,6 +689,8 @@ TvCtrlPointPrintDevice( int devnum )
                           tmpdevnode->device.UDN );
         SampleUtil_Print( "    +- DescDocURL     = %s",
                           tmpdevnode->device.DescDocURL );
+        SampleUtil_Print( "    +- DeviceType   = %s",
+                          tmpdevnode->device.DeviceType);
         SampleUtil_Print( "    +- FriendlyName   = %s",
                           tmpdevnode->device.FriendlyName );
         SampleUtil_Print( "    +- PresURL        = %s",
@@ -885,6 +887,7 @@ TvCtrlPointAddDevice( IXML_Document * DescDoc,
 			tvdevice = &deviceNode->device;
             strcpy(tvdevice->UDN, UDN);
             strcpy(tvdevice->DescDocURL, location);
+			strcpy(tvdevice->DeviceType, deviceType);
             strcpy(tvdevice->FriendlyName, friendlyName);
             strcpy(tvdevice->PresURL, presURL);
             tvdevice->AdvrTimeOut = expires;
