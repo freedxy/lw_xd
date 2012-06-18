@@ -627,13 +627,13 @@ TvCtrlPointPrintList()
 
     ithread_mutex_lock( &DeviceListMutex );
 
-    SampleUtil_Print( "TvCtrlPointPrintList:" );
+    printf("TvCtrlPointPrintList:\n");
     tmpdevnode = GlobalDeviceList;
     while( tmpdevnode ) {
-        SampleUtil_Print( " %3d -- %s", ++i, tmpdevnode->device.UDN );
+        printf(" %3d -- %s\n", ++i, tmpdevnode->device.UDN);
         tmpdevnode = tmpdevnode->next;
     }
-    SampleUtil_Print( "" );
+    printf("\n");
     ithread_mutex_unlock( &DeviceListMutex );
 
     return TV_SUCCESS;
@@ -839,18 +839,15 @@ removeexit:
  *   expires -- The expiration time for this advertisement
  *
  ********************************************************************************/
-void
-TvCtrlPointAddDevice( IXML_Document * DescDoc,
-                      char *location,
-                      int expires )
+struct TvDeviceNode *TvCtrlPointAddDevice(struct Upnp_Discovery *d_event,
+							IXML_Document *DescDoc, char *UDN)
 {
     char *deviceType = NULL;
     char *friendlyName = NULL;
     char presURL[200];
     char *baseURL = NULL;
     char *relURL = NULL;
-    char *UDN = NULL;
-    struct TvDeviceNode *deviceNode;
+    struct TvDeviceNode *deviceNode = NULL;
     struct TvDeviceNode *tmpdevnode;
 	struct TvDevice *tvdevice;
     int ret = 1;
@@ -858,65 +855,52 @@ TvCtrlPointAddDevice( IXML_Document * DescDoc,
     int service,
       var;
 
-    ithread_mutex_lock( &DeviceListMutex );
+	/* Read key elements from description document */
+	baseURL = SampleUtil_GetFirstDocumentItem(DescDoc, "URLBase");
+	relURL = SampleUtil_GetFirstDocumentItem(DescDoc, "presentationURL");
 
-    /*
-       Read key elements from description document 
-     */
-    UDN = SampleUtil_GetFirstDocumentItem( DescDoc, "UDN" );
-    deviceType = SampleUtil_GetFirstDocumentItem( DescDoc, "deviceType" );
-    friendlyName = SampleUtil_GetFirstDocumentItem( DescDoc, "friendlyName" );
-    baseURL = SampleUtil_GetFirstDocumentItem( DescDoc, "URLBase" );
-    relURL = SampleUtil_GetFirstDocumentItem( DescDoc, "presentationURL" );
+	ret = UpnpResolveURL((baseURL?baseURL:d_event->Location), relURL, presURL);
+    if (ret != UPNP_E_SUCCESS) {
+		printf("Error generating presURL from %s + %s\n", baseURL, relURL);
+		goto error1;
+	}
 
-    ret = UpnpResolveURL((baseURL?baseURL:location), relURL, presURL);
+	/* Create a new device node and device structure */
+	deviceNode = (struct TvDeviceNode *)malloc(sizeof(struct TvDeviceNode));
+	if (!deviceNode) {
+		printf("error TvCtrlPointAddDevice memory over\n");
+		goto error1;
+	}
 
-    if (UPNP_E_SUCCESS != ret)
-		SampleUtil_Print("Error generating presURL from %s + %s", baseURL, relURL );
+	deviceType = SampleUtil_GetFirstDocumentItem(DescDoc, "deviceType");
+	friendlyName = SampleUtil_GetFirstDocumentItem(DescDoc, "friendlyName");
 
-        // Check if this device is already in the list
-        /* UND is unique: two device of same ushare  */
-        tvdevice = CtrlPointSearchDeviceListByUDN(UDN);
-        if (tvdevice) {
-            // The device is already there, so just update 
-            // the advertisement timeout field
-            tvdevice->AdvrTimeOut = expires;
-        } else {
-			/* Create a new device node and device structure */
-			deviceNode = (struct TvDeviceNode *)malloc(sizeof(struct TvDeviceNode));
-			tvdevice = &deviceNode->device;
-            strcpy(tvdevice->UDN, UDN);
-            strcpy(tvdevice->DescDocURL, location);
-			strcpy(tvdevice->DeviceType, deviceType);
-            strcpy(tvdevice->FriendlyName, friendlyName);
-            strcpy(tvdevice->PresURL, presURL);
-            tvdevice->AdvrTimeOut = expires;
-			tvdevice->DescDoc = DescDoc;
+	tvdevice = &deviceNode->device;
+	strcpy(tvdevice->UDN, UDN);
+	strcpy(tvdevice->DescDocURL, d_event->Location);
+	strcpy(tvdevice->DeviceType, deviceType);
+	strcpy(tvdevice->FriendlyName, friendlyName);
+	strcpy(tvdevice->PresURL, presURL);
+	tvdevice->AdvrTimeOut = d_event->Expires;
+	tvdevice->DescDoc = DescDoc;
 
-			/* init service structure */
-			CtrlPointFindAndParseService(DescDoc, location, tvdevice);
+	/* init service structure */
+	CtrlPointFindAndParseService(DescDoc, d_event->Location, tvdevice);
 
-			CtrlPointAddDeviceList(deviceNode);
+	//Notify New Device Added
+	SampleUtil_StateUpdate(NULL, NULL, deviceNode->device.UDN, DEVICE_ADDED);
 
-            //Notify New Device Added
-            SampleUtil_StateUpdate( NULL, NULL, deviceNode->device.UDN,
-                                    DEVICE_ADDED );
-        }
+	if (deviceType)
+		free(deviceType);
+	if (friendlyName)
+		free(friendlyName);
+error1:
+	if (baseURL)
+		free(baseURL);
+	if (relURL)
+		free(relURL);
 
-    ithread_mutex_unlock( &DeviceListMutex );
-
-    if( deviceType )
-        free( deviceType );
-    if( friendlyName )
-        free( friendlyName );
-    if( UDN )
-        free( UDN );
-    if( baseURL )
-        free( baseURL );
-    if( relURL )
-        free( relURL );
-
-	/* clear service */
+	return deviceNode;
 }
 
 /********************************************************************************
@@ -1152,35 +1136,49 @@ TvCtrlPointCallbackEventHandler( Upnp_EventType EventType,
             /*
                SSDP Stuff 
              */
-        case UPNP_DISCOVERY_ADVERTISEMENT_ALIVE:
-        case UPNP_DISCOVERY_SEARCH_RESULT:
-            {
-                struct Upnp_Discovery *d_event =
-                    ( struct Upnp_Discovery * )Event;
-                IXML_Document *DescDoc = NULL;
-                int ret;
+		case UPNP_DISCOVERY_ADVERTISEMENT_ALIVE:
+		case UPNP_DISCOVERY_SEARCH_RESULT: {
+			struct Upnp_Discovery *d_event = (struct Upnp_Discovery *)Event;
+			IXML_Document *DescDoc = NULL;
+			char *UDN = NULL;
+			struct TvDevice *tvdevice;
+			struct TvDeviceNode *deviceNode;
+			int ret;
 
-                if( d_event->ErrCode != UPNP_E_SUCCESS ) {
-                    SampleUtil_Print( "Error in Discovery Callback -- %d",
-                                      d_event->ErrCode );
-                }
+			if (d_event->ErrCode != UPNP_E_SUCCESS) {
+				printf("Error in Discovery Callback -- %d\n", d_event->ErrCode);
+				break;
+			}
 
-                if( ( ret =
-                      UpnpDownloadXmlDoc( d_event->Location,
-                                          &DescDoc ) ) !=
-                    UPNP_E_SUCCESS ) {
-                    SampleUtil_Print
-                        ( "Error obtaining device description from %s -- error = %d",
-                          d_event->Location, ret );
-                } else {
-                    TvCtrlPointAddDevice( DescDoc, d_event->Location,
-                                          d_event->Expires );
-                }
+			ret = UpnpDownloadXmlDoc(d_event->Location, &DescDoc);
+			if (ret != UPNP_E_SUCCESS) {
+				printf("Error obtaining device description from %s -- error = %d\n",
+						d_event->Location, ret);
+				break;
+			}
 
-//                TvCtrlPointPrintList();
-                break;
-            }
+			UDN = SampleUtil_GetFirstDocumentItem(DescDoc, "UDN");
+			ithread_mutex_lock(&DeviceListMutex);
+			tvdevice = CtrlPointSearchDeviceListByUDN(UDN);
+			if (tvdevice) {
+				// The device is already there, so just update 
+				// the advertisement timeout field
+				tvdevice->AdvrTimeOut = d_event->Expires;
+				ithread_mutex_unlock(&DeviceListMutex);
+				ixmlDocument_free(DescDoc);
+			} else {
+				ithread_mutex_unlock(&DeviceListMutex);
+				deviceNode = TvCtrlPointAddDevice(d_event, DescDoc, UDN);
+				ithread_mutex_lock(&DeviceListMutex);
+				if (deviceNode)
+					CtrlPointAddDeviceList(deviceNode);
+				ithread_mutex_unlock(&DeviceListMutex);
+			}
+			free(UDN);
 
+			TvCtrlPointPrintList();
+			break;
+		}
         case UPNP_DISCOVERY_SEARCH_TIMEOUT:
             /*
                Nothing to do here... 
