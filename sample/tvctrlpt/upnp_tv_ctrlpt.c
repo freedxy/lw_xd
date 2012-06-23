@@ -424,7 +424,7 @@ TvCtrlPointGetPower( int devnum )
    out:
    print by ixmlPrintDocument
 */
-int CtrlPointSendAction(char *UDN, int service, char *actionname,
+IXML_Document *CtrlPointSendAction(char *UDN, int service, char *actionname,
                         char **param_name, char **param_val, int param_count)
 {
     struct TvDevice *dev;
@@ -475,10 +475,8 @@ int CtrlPointSendAction(char *UDN, int service, char *actionname,
 		ixmlFreeDOMString(outs);
     if(ActionXML)
         ixmlDocument_free(ActionXML);
-	if (ActionRespXML)
-		ixmlDocument_free(ActionRespXML);
 
-    return ret;
+    return ActionRespXML;
 }
 
 /********************************************************************************
@@ -565,7 +563,7 @@ int TvCtrlPointSendSetChannel(int devnum, int channel)
 
 	param_name[0] = "Channel";
 	sprintf(param_val_tmp, "%d", channel);
-	param_val[1] = param_val_tmp;
+	param_val[0] = param_val_tmp;
 
 	return TvCtrlPointSendAction(TV_SERVICE_CONTROL, devnum, "SetChannel",
 								&param_name[0], &param_val[0], PNUM);
