@@ -1,4 +1,9 @@
 
+#include "upnp_tv_ctrlpt.h"
+
+extern IXML_Document *CtrlPointSendAction(char *UDN, int service, char *actionname,
+                        char **param_name, char **param_val, int param_count);
+
 IXML_Document *get_browse_result(int devnum, int service, int ObjectID)
 {
 	char *param_name[] = {
@@ -25,7 +30,7 @@ IXML_Document *get_browse_result(int devnum, int service, int ObjectID)
 
 	TvCtrlPointGetDevice(devnum, &devnode);
 	if (!devnode)
-		return NULL
+		return NULL;
 
 	return CtrlPointSendAction(devnode->device.UDN, service, "Browse",
 								&param_name[0], &param_val[0], 6);

@@ -109,6 +109,7 @@ static int CtrlPointFindAndParseService(
 	char *base;
 	char *relcontrolURL = NULL, *releventURL = NULL;
 	char *controlURL = NULL, *eventURL = NULL;
+	char *SCPDURL = NULL;
 	IXML_NodeList *serviceList = NULL;
 	IXML_Element *service = NULL;
 
@@ -131,6 +132,9 @@ static int CtrlPointFindAndParseService(
 
 		serviceId = SampleUtil_GetFirstElementItem(service, "serviceId");
 		strcpy(tvservice->ServiceId, serviceId);
+
+		SCPDURL = SampleUtil_GetFirstElementItem(service, "SCPDURL");
+		strcpy(tvservice->SCPDURL, SCPDURL);
 
 		relcontrolURL = SampleUtil_GetFirstElementItem(service, "controlURL");
 		releventURL = SampleUtil_GetFirstElementItem(service, "eventSubURL");
@@ -161,8 +165,11 @@ static int CtrlPointFindAndParseService(
 			free(releventURL);
 		if (eventURL)
 			free(eventURL);
+		if (SCPDURL)
+			free(SCPDURL);
 		relcontrolURL = releventURL = NULL;
 		controlURL = eventURL = NULL;
+		SCPDURL = NULL;
 		if (serviceType)
 			free(serviceType);
 		serviceType = NULL;
@@ -431,7 +438,6 @@ IXML_Document *CtrlPointSendAction(char *UDN, int service, char *actionname,
 	struct tv_service *tvservice;
     IXML_Document *ActionXML = NULL;
 	IXML_Document *ActionRespXML = NULL;
-	char *outs = NULL;
     int ret = -1;
     int i;
 
@@ -465,14 +471,6 @@ IXML_Document *CtrlPointSendAction(char *UDN, int service, char *actionname,
 
     ithread_mutex_unlock( &DeviceListMutex );
 
-	/* print respond action xml */
-	outs = ixmlPrintDocument(ActionRespXML);
-	printf("=============================");
-	printf("%s\n", outs);
-	printf("=============================");
-
-	if (outs)
-		ixmlFreeDOMString(outs);
     if(ActionXML)
         ixmlDocument_free(ActionXML);
 
@@ -702,8 +700,7 @@ TvCtrlPointPrintDevice( int devnum )
             else
                 sprintf( spacer, "         " );
             SampleUtil_Print( "    |                  " );
-            SampleUtil_Print( "    +- Tv %s Service",
-                              TvServiceName[service] );
+            SampleUtil_Print( "    +- Service %d", service);
             SampleUtil_Print( "%s+- ServiceId       = %s", spacer,
                               tmpdevnode->device.TvService[service].
                               ServiceId );
@@ -716,16 +713,20 @@ TvCtrlPointPrintDevice( int devnum )
             SampleUtil_Print( "%s+- ControlURL      = %s", spacer,
                               tmpdevnode->device.TvService[service].
                               ControlURL );
+            SampleUtil_Print( "%s+- SCPDURL         = %s", spacer,
+                              tmpdevnode->device.TvService[service].
+                              SCPDURL );
             SampleUtil_Print( "%s+- SID             = %s", spacer,
                               tmpdevnode->device.TvService[service].SID );
             SampleUtil_Print( "%s+- ServiceStateTable", spacer );
-
+/*
             for( var = 0; var < TvVarCount[service]; var++ ) {
                 SampleUtil_Print( "%s     +- %-10s = %s", spacer,
                                   TvVarName[service][var],
                                   tmpdevnode->device.TvService[service].
                                   VariableStrVal[var] );
             }
+*/
         }
     }
 
@@ -1139,7 +1140,7 @@ TvCtrlPointCallbackEventHandler( Upnp_EventType EventType,
 			struct Upnp_Discovery *d_event = (struct Upnp_Discovery *)Event;
 			IXML_Document *DescDoc = NULL;
 			char *UDN = NULL;
-			struct TvDevice *tvdevice;
+			struct TvDevice *tvdevice = NULL;
 			struct TvDeviceNode *deviceNode;
 			int ret;
 
@@ -1172,7 +1173,8 @@ TvCtrlPointCallbackEventHandler( Upnp_EventType EventType,
 					CtrlPointAddDeviceList(deviceNode);
 				ithread_mutex_unlock(&DeviceListMutex);
 			}
-			free(UDN);
+			if (UDN)
+				free(UDN);
 
 			TvCtrlPointPrintList();
 			break;

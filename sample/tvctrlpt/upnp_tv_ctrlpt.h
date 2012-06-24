@@ -86,6 +86,7 @@ struct tv_service {
     char *VariableStrVal[TV_MAXVARS];
     char EventURL[NAME_SIZE];
     char ControlURL[NAME_SIZE];
+	char SCPDURL[NAME_SIZE];
     char SID[NAME_SIZE];
 	int TvServiceState;
 };

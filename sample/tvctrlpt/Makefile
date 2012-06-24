@@ -6,6 +6,7 @@ UPNP_LIB=$(UPNP_DIR)/lib/
 all:
 	gcc -I$(UPNP_INC) -L$(UPNP_LIB) \
 	-I./ -Ilinux/ -I../common/ \
+	browse.c \
 	upnp_tv_ctrlpt.c \
 	linux/upnp_tv_ctrlpt_main.c \
 	../common/sample_util.c \

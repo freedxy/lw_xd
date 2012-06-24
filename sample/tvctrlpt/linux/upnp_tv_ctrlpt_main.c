@@ -44,7 +44,7 @@ enum cmdloop_tvcmds {
     PRTHELP = 0, PRTFULLHELP, POWON, POWOFF,
     SETCHAN, SETVOL, SETCOL, SETTINT, SETCONT, SETBRT,
     CTRLACTION, PICTACTION, CTRLGETVAR, PICTGETVAR,
-    UNSUBSCRIBE, SUBSCRIBE, PRTDEV, LSTDEV, REFRESH, EXITCMD
+    BROWSE, UNSUBSCRIBE, SUBSCRIBE, PRTDEV, LSTDEV, REFRESH, EXITCMD
 };
 
 /*
@@ -70,6 +70,7 @@ static struct cmdloop_commands cmdloop_cmdlist[] = {
     {"PrintDev", PRTDEV, 2, "<devnum>"},
     {"Subscribe", SUBSCRIBE, 3, "<devnum> <service (int)>"},
     {"Unsubscribe", UNSUBSCRIBE, 3, "<devnum> <service (int)>"},
+    {"Browse", BROWSE, 3, "<devnum> <service (int)>"},
     {"PowerOn", POWON, 2, "<devnum>"},
     {"PowerOff", POWOFF, 2, "<devnum>"},
     {"SetChannel", SETCHAN, 3, "<devnum> <channel (int)>"},
@@ -370,6 +371,24 @@ TvCtrlPointProcessCommand( char *cmdline )
 			TvCtrlPointGetDevice(arg1, &devnode);
             CtrlPointRemoveService(devnode->device.UDN, arg2);
             break;
+		}
+		case BROWSE: {
+			IXML_Document *doc;
+			char *outs = NULL;
+			extern IXML_Document *get_browse_result(int devnum, int service, int ObjectID);
+			doc = get_browse_result(arg1, 1, arg2);
+			/* print respond action xml */
+			outs = ixmlPrintDocument(doc);
+			if (outs) {
+				printf("=============================\n");
+				printf("%s\n", outs);
+				printf("=============================\n");
+				ixmlFreeDOMString(outs);
+			}
+
+			if (doc)
+				ixmlDocument_free(doc);
+			break;
 		}
         case REFRESH:
             TvCtrlPointRefresh();
